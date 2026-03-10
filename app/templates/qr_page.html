@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Join {{ trip.name }} – QR Code{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('trips.view_trip', trip_id=trip.id) }}" class="btn btn-secondary btn-sm" style="margin-bottom:1rem;">← Back</a>
+
+<div style="text-align:center; padding: 1rem 0;">
+    <h1 style="margin-bottom:0.25rem;">{{ trip.name }}</h1>
+    <p class="text-dim text-sm">Scan to join this {{ trip.trip_type }}</p>
+
+    <div style="background:white; border-radius:16px; padding:1.5rem; display:inline-block; margin:1.5rem 0; box-shadow: 0 0 40px rgba(124,106,247,0.2);">
+        <img src="{{ url_for('qr.trip_qr', trip_id=trip.id) }}"
+             alt="QR code to join {{ trip.name }}"
+             style="width:220px; height:220px; display:block;">
+    </div>
+
+    <div style="margin-bottom:1.5rem;">
+        <div class="text-dim text-sm" style="margin-bottom:0.5rem;">Or share this link</div>
+        <div style="display:flex; gap:0.5rem; align-items:center; max-width:400px; margin:0 auto;">
+            <input type="text" value="{{ join_url }}" id="join-url" readonly
+                style="flex:1; font-size:0.8rem; color:var(--text-dim); cursor:pointer;"
+                onclick="this.select()">
+            <button onclick="copyLink()" class="btn btn-secondary btn-sm" id="copy-btn">Copy</button>
+        </div>
+    </div>
+
+    <div class="card" style="max-width:360px; margin:0 auto; text-align:left;">
+        <div class="section-label" style="margin-bottom:0.5rem;">How it works</div>
+        <div style="font-size:0.85rem; color:var(--text-dim); display:flex; flex-direction:column; gap:0.5rem;">
+            <div>1. Show this QR code to your friends</div>
+            <div>2. They scan it with their phone camera</div>
+            <div>3. They log in or create a SplitSmart account</div>
+            <div>4. They're automatically added to <strong style="color:var(--text);">{{ trip.name }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyLink() {
+    navigator.clipboard.writeText(document.getElementById('join-url').value).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        btn.style.color = 'var(--green)';
+        setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.style.color = '';
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

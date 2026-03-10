@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Members – {{ trip.name }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('trips.view_trip', trip_id=trip.id) }}" class="btn btn-secondary btn-sm" style="margin-bottom:1rem;">← Back</a>
+
+<h1>Members</h1>
+<p class="text-dim mt-1" style="margin-bottom:1.5rem;">{{ trip.name }}</p>
+
+<!-- Add by email -->
+<div class="card" style="margin-bottom:1rem;">
+    <h3 style="margin-bottom:1rem;">Add by email</h3>
+    <form method="POST" style="display:flex; gap:0.5rem;">
+        <input type="hidden" name="action" value="add_by_email">
+        <input type="email" name="email" placeholder="friend@email.com" required style="flex:1;">
+        <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+</div>
+
+<!-- Add by phone -->
+<div class="card" style="margin-bottom:1rem;">
+    <h3 style="margin-bottom:1rem;">Add by phone</h3>
+    <form method="POST" style="display:flex; gap:0.5rem;">
+        <input type="hidden" name="action" value="add_by_phone">
+        <input type="tel" name="phone" placeholder="+61 400 000 000" required style="flex:1;">
+        <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+</div>
+
+<!-- QR invite -->
+<div class="card" style="margin-bottom:1rem;">
+    <div class="flex-between">
+        <div>
+            <h3>QR code invite</h3>
+            <p class="text-dim text-sm mt-1">Anyone who scans this and logs in will join</p>
+        </div>
+        <a href="{{ url_for('qr.trip_qr_page', trip_id=trip.id) }}" class="btn btn-secondary btn-sm">Show QR</a>
+    </div>
+</div>
+
+<!-- Member list -->
+<div class="card">
+    <h3 style="margin-bottom:0.75rem;">Current members ({{ trip.members | length }})</h3>
+    {% for member in trip.members %}
+    <div class="member-item">
+        <div class="avatar" style="background: hsl({{ (member.id * 67) % 360 }}, 60%, 55%);">{{ member.name[0].upper() }}</div>
+        <div style="flex:1;">
+            <div class="member-name">
+                {{ member.name }}
+                {% if member.id == trip.creator_id %}
+                    <span style="font-size:0.72rem; color:var(--accent); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-left:0.3rem;">creator</span>
+                {% endif %}
+            </div>
+            {% if member.phone %}
+                <div class="member-phone">{{ member.phone }}</div>
+            {% endif %}
+        </div>
+        {% if member.id != trip.creator_id and member.id != current_user.id %}
+        <form method="POST">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="user_id" value="{{ member.id }}">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove {{ member.name }}?')">Remove</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

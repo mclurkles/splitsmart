@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{{ trip.name }} – SplitSmart{% endblock %}
+{% block content %}
+
+<!-- HEADER -->
+<div style="margin-bottom: 1.25rem;">
+    <div class="flex-between">
+        <div>
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+                <span class="badge badge-{{ trip.status }}">{{ trip.status }}</span>
+                <span class="badge badge-{{ trip.trip_type }}">{{ trip.trip_type }}</span>
+            </div>
+            <h1>{{ trip.name }}</h1>
+            {% if trip.description %}
+                <p class="text-dim text-sm mt-1">{{ trip.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- QUICK ACTIONS -->
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+    {% if trip.status == 'open' %}
+        <a href="{{ url_for('expenses.new_expense', trip_id=trip.id) }}" class="btn btn-primary btn-sm">+ Expense</a>
+    {% endif %}
+    <a href="{{ url_for('trips.manage_members', trip_id=trip.id) }}" class="btn btn-secondary btn-sm">👥 Members ({{ trip.members | length }})</a>
+    <a href="{{ url_for('qr.trip_qr_page', trip_id=trip.id) }}" class="btn btn-secondary btn-sm">📱 QR Invite</a>
+    <form method="POST" action="{{ url_for('trips.toggle_status', trip_id=trip.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-sm {% if trip.status == 'open' %}btn-danger{% else %}btn-secondary{% endif %}"
+            onclick="return confirm('{% if trip.status == 'open' %}Close this trip and generate settlement plan?{% else %}Reopen this trip?{% endif %}')">
+            {% if trip.status == 'open' %}🔒 Close{% else %}🔓 Reopen{% endif %}
+        </button>
+    </form>
+</div>
+
+<!-- MY BALANCE -->
+{% if trip.members | length > 1 %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-label">Your balance</div>
+    {% if my_balance > 0.01 %}
+        <div class="balance-positive" style="font-size:1.3rem; font-family:'Syne',sans-serif;">
+            +{{ trip.currency }} {{ "%.2f"|format(my_balance) }}
+        </div>
+        <div class="text-dim text-sm mt-1">Others owe you this</div>
+    {% elif my_balance < -0.01 %}
+        <div class="balance-negative" style="font-size:1.3rem; font-family:'Syne',sans-serif;">
+            {{ trip.currency }} {{ "%.2f"|format(my_balance) }}
+        </div>
+        <div class="text-dim text-sm mt-1">You owe this amount</div>
+    {% else %}
+        <div class="balance-zero" style="font-size:1.3rem; font-family:'Syne',sans-serif;">All even ✓</div>
+        <div class="text-dim text-sm mt-1">You're settled up</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- SETTLEMENTS (when closed or have pending) -->
+{% if settlements %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-label" style="margin-bottom:0.75rem;">
+        💡 Optimal settlement plan
+        <span class="text-dim" style="font-size:0.7rem; text-transform:none; letter-spacing:0;">({{ settlements | length }} payment{{ 's' if settlements | length != 1 }})</span>
+    </div>
+
+    {% for existing_s in existing_settlements %}
+    <div class="settlement-item" style="{% if existing_s.status == 'paid' %}opacity:0.4;{% endif %}">
+        <div class="avatar">{{ existing_s.from_user.name[0] }}</div>
+        <div style="flex:1; min-width:0;">
+            <div style="font-size:0.9rem;">
+                <strong>{{ existing_s.from_user.name.split()[0] }}</strong>
+                <span class="text-dim"> pays </span>
+                <strong>{{ existing_s.to_user.name.split()[0] }}</strong>
+            </div>
+            <div style="font-family:'Syne',sans-serif; font-weight:700; color:var(--accent3);">
+                {{ existing_s.currency }} {{ "%.2f"|format(existing_s.amount) }}
+            </div>
+        </div>
+        {% if existing_s.status == 'paid' %}
+            <span class="badge badge-open">paid ✓</span>
+        {% elif existing_s.from_user_id == current_user.id or existing_s.to_user_id == current_user.id %}
+            <form method="POST" action="{{ url_for('trips.mark_settled', trip_id=trip.id, settlement_id=existing_s.id) }}">
+                <button type="submit" class="btn btn-sm btn-success">Mark paid</button>
+            </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if not existing_settlements %}
+        {% for s in settlements %}
+        <div class="settlement-item">
+            <div class="avatar">{{ s.from_user.name[0] }}</div>
+            <div style="flex:1;">
+                <div style="font-size:0.9rem;">
+                    <strong>{{ s.from_user.name.split()[0] }}</strong>
+                    <span class="text-dim"> pays </span>
+                    <strong>{{ s.to_user.name.split()[0] }}</strong>
+                </div>
+                <div style="font-family:'Syne',sans-serif; font-weight:700; color:var(--accent3);">
+                    {{ s.currency }} {{ "%.2f"|format(s.amount) }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- EXPENSES -->
+<div class="card">
+    <div class="flex-between" style="margin-bottom:0.75rem;">
+        <h3>Expenses</h3>
+        {% if trip.expenses %}
+            <span style="font-family:'Syne',sans-serif; font-weight:700; color:var(--accent3);">
+                {{ trip.currency }} {{ "%.2f"|format(trip.expenses | sum(attribute='amount')) }}
+            </span>
+        {% endif %}
+    </div>
+
+    {% if trip.expenses %}
+        {% for expense in trip.expenses | sort(attribute='created_at', reverse=True) %}
+        <div class="expense-item">
+            <div style="flex:1; min-width:0;">
+                <div class="expense-desc">{{ expense.description }}</div>
+                <div class="expense-meta">
+                    Paid by <strong>{{ expense.payer.name.split()[0] }}</strong>
+                    · {{ expense.splits | length }} split
+                    {% if expense.currency != trip.currency %}
+                        · <span style="color:var(--yellow);">{{ expense.currency }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span class="expense-amount">{{ expense.currency }} {{ "%.2f"|format(expense.amount) }}</span>
+                {% if trip.status == 'open' %}
+                <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                    <a href="{{ url_for('expenses.edit_expense', expense_id=expense.id) }}" class="btn btn-sm btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem;">Edit</a>
+                    <form method="POST" action="{{ url_for('expenses.delete_expense', expense_id=expense.id) }}" style="margin:0;">
+                        <button type="submit" class="btn btn-sm btn-danger" style="padding:0.2rem 0.5rem; font-size:0.75rem; width:100%;"
+                            onclick="return confirm('Delete this expense?')">Del</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state" style="padding: 1.5rem 0;">
+            <p class="text-dim text-sm">No expenses yet.</p>
+            {% if trip.status == 'open' %}
+                <a href="{{ url_for('expenses.new_expense', trip_id=trip.id) }}" class="btn btn-primary btn-sm" style="margin-top:0.75rem;">Add first expense</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

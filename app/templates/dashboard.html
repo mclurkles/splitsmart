@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – SplitSmart{% endblock %}
+{% block content %}
+
+<div class="flex-between" style="margin-bottom: 1.5rem;">
+    <div>
+        <h1>Hey, {{ current_user.name.split()[0] }} 👋</h1>
+        <p class="text-dim text-sm mt-1">Your trips & events</p>
+    </div>
+    <a href="{{ url_for('trips.new_trip') }}" class="btn btn-primary">+ New</a>
+</div>
+
+{% if open_trips %}
+<div class="section-label">Active</div>
+{% for trip in open_trips %}
+<a href="{{ url_for('trips.view_trip', trip_id=trip.id) }}" class="trip-card">
+    <div class="flex-between">
+        <div style="flex:1; min-width:0;">
+            <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:1.05rem;">{{ trip.name }}</div>
+            <div class="trip-card-meta">
+                <span class="badge badge-{{ trip.trip_type }}">{{ trip.trip_type }}</span>
+                <span>{{ trip.members | length }} people</span>
+                <span>·</span>
+                <span>{{ trip.expenses | length }} expense{{ 's' if trip.expenses | length != 1 }}</span>
+                <span>·</span>
+                <span>{{ trip.currency }}</span>
+            </div>
+        </div>
+        <div style="color:var(--text-dimmer); font-size:1.2rem; margin-left:0.5rem;">›</div>
+    </div>
+</a>
+{% endfor %}
+{% endif %}
+
+{% if closed_trips %}
+<div class="section-label" style="margin-top: 1.5rem;">Closed</div>
+{% for trip in closed_trips %}
+<a href="{{ url_for('trips.view_trip', trip_id=trip.id) }}" class="trip-card" style="opacity: 0.6;">
+    <div class="flex-between">
+        <div style="flex:1; min-width:0;">
+            <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:1.05rem;">{{ trip.name }}</div>
+            <div class="trip-card-meta">
+                <span class="badge badge-closed">closed</span>
+                <span class="badge badge-{{ trip.trip_type }}">{{ trip.trip_type }}</span>
+                <span>{{ trip.expenses | length }} expense{{ 's' if trip.expenses | length != 1 }}</span>
+            </div>
+        </div>
+        <div style="color:var(--text-dimmer); font-size:1.2rem; margin-left:0.5rem;">›</div>
+    </div>
+</a>
+{% endfor %}
+{% endif %}
+
+{% if not open_trips and not closed_trips %}
+<div class="empty-state">
+    <div class="empty-icon">🗺️</div>
+    <h3>No trips yet</h3>
+    <p class="text-sm mt-2">Create a trip or event to start splitting expenses with friends.</p>
+    <a href="{{ url_for('trips.new_trip') }}" class="btn btn-primary" style="margin-top: 1rem;">Create your first trip</a>
+</div>
+{% endif %}
+
+<a href="{{ url_for('trips.new_trip') }}" class="fab" title="New trip or event">+</a>
+{% endblock %}

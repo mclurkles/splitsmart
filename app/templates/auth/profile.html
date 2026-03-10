@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Profile – SplitSmart{% endblock %}
+{% block content %}
+<h1>Your profile</h1>
+<p class="text-dim mt-1" style="margin-bottom: 1.5rem;">Update your details</p>
+
+<div class="card">
+    <form method="POST">
+        <div class="form-group">
+            <label>Full name</label>
+            <input type="text" name="name" value="{{ current_user.name }}" required>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" value="{{ current_user.email }}" disabled style="opacity:0.5;">
+        </div>
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" name="phone" value="{{ current_user.phone or '' }}" placeholder="+61 400 000 000">
+        </div>
+        <div class="form-group">
+            <label>Default currency</label>
+            <select name="currency">
+                {% set currencies = ['AUD','USD','GBP','EUR','NZD','JPY','CAD','SGD'] %}
+                {% for c in currencies %}
+                    <option value="{{ c }}" {% if current_user.preferred_currency == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <hr class="divider">
+        <h3 style="margin-bottom:1rem;">Change password</h3>
+
+        <div class="form-group">
+            <label>Current password</label>
+            <input type="password" name="current_password" placeholder="Leave blank to keep current">
+        </div>
+        <div class="form-group">
+            <label>New password</label>
+            <input type="password" name="new_password" placeholder="New password">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Save changes</button>
+    </form>
+</div>
+{% endblock %}

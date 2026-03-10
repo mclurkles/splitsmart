@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Edit Expense – SplitSmart{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('trips.view_trip', trip_id=trip.id) }}" class="btn btn-secondary btn-sm" style="margin-bottom:1rem;">← Back</a>
+
+<h1>Edit expense</h1>
+<p class="text-dim mt-1" style="margin-bottom:1.5rem;">{{ trip.name }}</p>
+
+{% set current_split_ids = expense.splits | map(attribute='user_id') | list %}
+
+<div class="card">
+    <form method="POST" id="expense-form">
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" name="description" required value="{{ expense.description }}">
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div class="form-group">
+                <label>Amount</label>
+                <input type="number" name="amount" id="total-amount" required min="0.01" step="0.01" value="{{ expense.amount }}">
+            </div>
+            <div class="form-group">
+                <label>Currency</label>
+                <select name="currency">
+                    {% for c in currencies %}
+                        <option value="{{ c }}" {% if c == expense.currency %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Paid by</label>
+            <select name="payer_id">
+                {% for member in trip.members %}
+                    <option value="{{ member.id }}" {% if member.id == expense.payer_id %}selected{% endif %}>
+                        {{ member.name }}{% if member.id == current_user.id %} (you){% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Split between</label>
+            <div class="participant-grid">
+                {% for member in trip.members %}
+                <label class="participant-check">
+                    <input type="checkbox" name="participants" value="{{ member.id }}"
+                        id="p_{{ member.id }}"
+                        {% if member.id in current_split_ids %}checked{% endif %}
+                        onchange="updateSplits()">
+                    <span>{{ member.name.split()[0] }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Split type</label>
+            <div class="split-tabs">
+                <button type="button" class="split-tab {% if expense.split_type == 'equal' %}active{% endif %}" onclick="setSplitType('equal', this)">Equal</button>
+                <button type="button" class="split-tab {% if expense.split_type == 'percent' %}active{% endif %}" onclick="setSplitType('percent', this)">Percent %</button>
+                <button type="button" class="split-tab {% if expense.split_type == 'amount' %}active{% endif %}" onclick="setSplitType('amount', this)">Amount $</button>
+            </div>
+            <input type="hidden" name="split_type" id="split_type_input" value="{{ expense.split_type }}">
+        </div>
+
+        <div id="split-details" style="display:{% if expense.split_type != 'equal' %}block{% else %}none{% endif %};">
+            <div class="total-bar">
+                <span class="text-dim text-sm" id="split-label">Allocated</span>
+                <span id="split-total" style="font-family:'Syne',sans-serif; font-weight:700; color:var(--accent3);">0</span>
+            </div>
+            <div id="split-inputs"></div>
+        </div>
+
+        <div id="equal-preview" class="total-bar" style="{% if expense.split_type != 'equal' %}display:none;{% endif %}">
+            <span class="text-dim text-sm">Per person</span>
+            <span id="per-person-amount" style="font-family:'Syne',sans-serif; font-weight:700; color:var(--accent3);">—</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:0.5rem;">Save changes</button>
+    </form>
+</div>
+
+<script>
+    const members = [
+        {% for member in trip.members %}
+        { id: {{ member.id }}, name: "{{ member.name.split()[0] }}" },
+        {% endfor %}
+    ];
+    const existingSplits = {
+        {% for split in expense.splits %}
+        {{ split.user_id }}: { percent: {{ split.percent or 0 }}, amount: {{ split.amount or split.owed_amount or 0 }} },
+        {% endfor %}
+    };
+
+    let splitType = '{{ expense.split_type }}';
+
+    function setSplitType(type, btn) {
+        splitType = type;
+        document.getElementById('split_type_input').value = type;
+        document.querySelectorAll('.split-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const details = document.getElementById('split-details');
+        const preview = document.getElementById('equal-preview');
+        if (type === 'equal') {
+            details.style.display = 'none';
+            preview.style.display = 'flex';
+        } else {
+            details.style.display = 'block';
+            preview.style.display = 'none';
+            renderSplitInputs();
+        }
+        updateSplits();
+    }
+
+    function getCheckedMembers() {
+        return members.filter(m => {
+            const cb = document.getElementById('p_' + m.id);
+            return cb && cb.checked;
+        });
+    }
+
+    function renderSplitInputs() {
+        const checked = getCheckedMembers();
+        const container = document.getElementById('split-inputs');
+        const total = parseFloat(document.getElementById('total-amount').value) || 0;
+        const perPerson = checked.length > 0 ? total / checked.length : 0;
+
+        container.innerHTML = '';
+        checked.forEach((m, i) => {
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.style.cssText = 'display:flex; align-items:center; gap:0.5rem;';
+
+            const name = document.createElement('span');
+            name.style.cssText = 'width:80px; font-size:0.85rem;';
+            name.textContent = m.name;
+
+            const input = document.createElement('input');
+            input.style.flex = '1';
+            const existing = existingSplits[m.id];
+
+            if (splitType === 'percent') {
+                input.name = 'percent_' + m.id;
+                input.type = 'number';
+                input.step = '0.01';
+                input.min = '0';
+                input.max = '100';
+                input.value = existing ? existing.percent.toFixed(2) : (100 / checked.length).toFixed(2);
+                input.oninput = updateSplitTotal;
+            } else {
+                input.name = 'amount_' + m.id;
+                input.type = 'number';
+                input.step = '0.01';
+                input.min = '0';
+                input.value = existing ? existing.amount.toFixed(2) : perPerson.toFixed(2);
+                input.oninput = updateSplitTotal;
+            }
+
+            div.appendChild(name);
+            div.appendChild(input);
+            container.appendChild(div);
+        });
+
+        document.getElementById('split-label').textContent =
+            splitType === 'percent' ? 'Total %' : 'Total allocated';
+        updateSplitTotal();
+    }
+
+    function updateSplitTotal() {
+        const inputs = document.querySelectorAll('#split-inputs input');
+        let total = 0;
+        inputs.forEach(i => total += parseFloat(i.value) || 0);
+        const el = document.getElementById('split-total');
+        el.textContent = splitType === 'percent' ? total.toFixed(1) + '%' : '$' + total.toFixed(2);
+        const target = splitType === 'percent' ? 100 : (parseFloat(document.getElementById('total-amount').value) || 0);
+        el.style.color = Math.abs(total - target) < 0.05 ? 'var(--accent3)' : 'var(--red)';
+    }
+
+    function updateSplits() {
+        const total = parseFloat(document.getElementById('total-amount').value) || 0;
+        const checked = getCheckedMembers();
+        const per = checked.length > 0 ? total / checked.length : 0;
+        document.getElementById('per-person-amount').textContent =
+            checked.length > 0 ? '$' + per.toFixed(2) + ' each' : '—';
+        if (splitType !== 'equal') renderSplitInputs();
+    }
+
+    document.getElementById('total-amount').addEventListener('input', updateSplits);
+
+    if (splitType !== 'equal') renderSplitInputs();
+    updateSplits();
+</script>
+{% endblock %}
