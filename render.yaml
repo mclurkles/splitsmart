@@ -13,7 +13,7 @@ services:
           name: splitsmart-db
           property: connectionString
       - key: BASE_URL
-        value: https://splitsmart-zioo.onrender.com  # UPDATE THIS
+        value: https://splitsmart-zioo.onrender.com
 
 databases:
   - name: splitsmart-db
